@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="./overlay.css" />
+    <title>Quicknote Capture</title>
+  </head>
+  <body>
+    <textarea
+      id="idea-input"
+      placeholder="Type your idea..."
+      autofocus
+      spellcheck="false"
+    ></textarea>
+    <span id="saved-text">&check; Saved</span>
+    <span class="hint">Ctrl+Enter to save · Esc to dismiss</span>
+    <script type="module" src="./overlay.ts"></script>
+  </body>
+</html>

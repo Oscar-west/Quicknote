@@ -1,0 +1,44 @@
+<svg width="167" height="216" viewBox="0 0 167 216" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <!-- Main metallic gradient for the letter -->
+  <linearGradient id="metalGrad" x1="0.5" y1="0" x2="0.5" y2="1">
+    <stop offset="0%" stop-color="#8a8a8a"/>
+    <stop offset="15%" stop-color="#7a7a7a"/>
+    <stop offset="40%" stop-color="#5a5a5a"/>
+    <stop offset="60%" stop-color="#4a4a4a"/>
+    <stop offset="85%" stop-color="#5e5e5e"/>
+    <stop offset="100%" stop-color="#6a6a6a"/>
+  </linearGradient>
+  <!-- Left-to-right highlight for 3D curvature -->
+  <linearGradient id="sideLight" x1="0" y1="0.5" x2="1" y2="0.5">
+    <stop offset="0%" stop-color="white" stop-opacity="0.0"/>
+    <stop offset="30%" stop-color="white" stop-opacity="0.08"/>
+    <stop offset="50%" stop-color="white" stop-opacity="0.12"/>
+    <stop offset="70%" stop-color="white" stop-opacity="0.06"/>
+    <stop offset="100%" stop-color="white" stop-opacity="0.0"/>
+  </linearGradient>
+  <!-- Top specular highlight -->
+  <radialGradient id="specular" cx="0.45" cy="0.15" r="0.6" fx="0.45" fy="0.1">
+    <stop offset="0%" stop-color="white" stop-opacity="0.18"/>
+    <stop offset="40%" stop-color="white" stop-opacity="0.05"/>
+    <stop offset="100%" stop-color="white" stop-opacity="0"/>
+  </radialGradient>
+  <!-- Bevel/emboss filter -->
+  <filter id="bevel" x="-5%" y="-5%" width="110%" height="110%">
+    <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="blur"/>
+    <feSpecularLighting in="blur" surfaceScale="3" specularConstant="0.5" specularExponent="20" result="spec" lighting-color="#ffffff">
+      <fePointLight x="83" y="60" z="80"/>
+    </feSpecularLighting>
+    <feComposite in="spec" in2="SourceAlpha" operator="in" result="specOut"/>
+    <feComposite in="SourceGraphic" in2="specOut" operator="arithmetic" k1="0" k2="1" k3="0.3" k4="0"/>
+  </filter>
+</defs>
+<!-- Background -->
+<path d="M0 78C0 61.4315 13.4315 48 30 48H137C153.569 48 167 61.4315 167 78V185C167 201.569 153.569 215 137 215H30C13.4315 215 0 201.569 0 185V78Z" fill="black"/>
+<!-- Letter with metallic gradient -->
+<path d="M137.42 209.3V214.34H85.4V209.3L98.9 208.04C100.82 207.8 101.96 207.26 102.32 206.42C102.68 205.7 102.86 203.3 102.86 199.22V162.68C99.62 167.72 95.96 171.5 91.88 174.02C87.92 176.54 83.3 177.8 78.02 177.8C67.94 177.8 59.9 173.84 53.9 165.92C48.02 157.88 45.08 146.66 45.08 132.26V128.66C45.08 114.74 48.5 103.64 55.34 95.36C62.3 87.08 71.78 82.94 83.78 82.94C93.02 82.94 100.58 85.7 106.46 91.22C108.62 90.38 110.72 89.36 112.76 88.16C114.8 86.84 116.78 85.4 118.7 83.84H123.56V199.22C123.56 203.3 123.74 205.7 124.1 206.42C124.46 207.26 125.6 207.8 127.52 208.04L137.42 209.3ZM67.22 137.66C67.22 148.82 68.6 156.98 71.36 162.14C74.12 167.3 77.9 169.88 82.7 169.88C85.7 169.88 88.82 168.68 92.06 166.28C95.42 163.76 99.02 158.72 102.86 151.16V96.8C98.3 92.24 92.72 89.96 86.12 89.96C79.52 89.96 74.72 92.96 71.72 98.96C68.72 104.84 67.22 112.94 67.22 123.26V137.66Z" fill="url(#metalGrad)" filter="url(#bevel)"/>
+<!-- Side light overlay -->
+<path d="M137.42 209.3V214.34H85.4V209.3L98.9 208.04C100.82 207.8 101.96 207.26 102.32 206.42C102.68 205.7 102.86 203.3 102.86 199.22V162.68C99.62 167.72 95.96 171.5 91.88 174.02C87.92 176.54 83.3 177.8 78.02 177.8C67.94 177.8 59.9 173.84 53.9 165.92C48.02 157.88 45.08 146.66 45.08 132.26V128.66C45.08 114.74 48.5 103.64 55.34 95.36C62.3 87.08 71.78 82.94 83.78 82.94C93.02 82.94 100.58 85.7 106.46 91.22C108.62 90.38 110.72 89.36 112.76 88.16C114.8 86.84 116.78 85.4 118.7 83.84H123.56V199.22C123.56 203.3 123.74 205.7 124.1 206.42C124.46 207.26 125.6 207.8 127.52 208.04L137.42 209.3ZM67.22 137.66C67.22 148.82 68.6 156.98 71.36 162.14C74.12 167.3 77.9 169.88 82.7 169.88C85.7 169.88 88.82 168.68 92.06 166.28C95.42 163.76 99.02 158.72 102.86 151.16V96.8C98.3 92.24 92.72 89.96 86.12 89.96C79.52 89.96 74.72 92.96 71.72 98.96C68.72 104.84 67.22 112.94 67.22 123.26V137.66Z" fill="url(#sideLight)"/>
+<!-- Specular highlight overlay -->
+<path d="M137.42 209.3V214.34H85.4V209.3L98.9 208.04C100.82 207.8 101.96 207.26 102.32 206.42C102.68 205.7 102.86 203.3 102.86 199.22V162.68C99.62 167.72 95.96 171.5 91.88 174.02C87.92 176.54 83.3 177.8 78.02 177.8C67.94 177.8 59.9 173.84 53.9 165.92C48.02 157.88 45.08 146.66 45.08 132.26V128.66C45.08 114.74 48.5 103.64 55.34 95.36C62.3 87.08 71.78 82.94 83.78 82.94C93.02 82.94 100.58 85.7 106.46 91.22C108.62 90.38 110.72 89.36 112.76 88.16C114.8 86.84 116.78 85.4 118.7 83.84H123.56V199.22C123.56 203.3 123.74 205.7 124.1 206.42C124.46 207.26 125.6 207.8 127.52 208.04L137.42 209.3ZM67.22 137.66C67.22 148.82 68.6 156.98 71.36 162.14C74.12 167.3 77.9 169.88 82.7 169.88C85.7 169.88 88.82 168.68 92.06 166.28C95.42 163.76 99.02 158.72 102.86 151.16V96.8C98.3 92.24 92.72 89.96 86.12 89.96C79.52 89.96 74.72 92.96 71.72 98.96C68.72 104.84 67.22 112.94 67.22 123.26V137.66Z" fill="url(#specular)"/>
+</svg>
