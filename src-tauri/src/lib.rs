@@ -111,9 +111,6 @@ pub fn run() {
                     }
                 });
 
-                // Show the main window on launch so the user sees something
-                let _ = main_window.show();
-                let _ = main_window.set_focus();
             }
 
             // --- Global Shortcut: Ctrl+Alt+N ---
