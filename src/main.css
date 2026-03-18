@@ -426,7 +426,11 @@ header {
   padding: 12px 8px;
   border-bottom: 1px solid var(--border);
   transition: background 0.1s;
-  cursor: grab;
+  cursor: pointer;
+}
+
+.idea-row.expanded {
+  align-items: flex-start;
 }
 
 .idea-row:hover {
@@ -451,6 +455,28 @@ header {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 14px;
+  user-select: text;
+}
+
+.idea-row.expanded .idea-text {
+  white-space: normal;
+  text-overflow: unset;
+  overflow-y: auto;
+  max-height: 300px;
+  word-break: break-word;
+}
+
+.idea-row.expanded .idea-text::-webkit-scrollbar {
+  width: 4px;
+}
+
+.idea-row.expanded .idea-text::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.idea-row.expanded .idea-text::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
 }
 
 .idea-time {
@@ -483,6 +509,51 @@ header {
 
 .delete-btn:hover {
   color: var(--danger);
+}
+
+/* Drag handle */
+.drag-handle {
+  flex-shrink: 0;
+  cursor: grab;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.15s;
+  display: flex;
+  align-items: center;
+  padding: 4px 2px;
+}
+
+.idea-row:hover .drag-handle {
+  opacity: 0.5;
+}
+
+.drag-handle:hover {
+  opacity: 1 !important;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Expand/collapse arrow */
+.expand-btn {
+  flex-shrink: 0;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, color 0.15s;
+}
+
+.expand-btn:hover {
+  color: var(--text);
+}
+
+.idea-row.expanded .expand-btn {
+  transform: rotate(180deg);
 }
 
 /* Empty state */
@@ -623,4 +694,235 @@ header {
 
 .dialog-btn.danger:hover {
   opacity: 0.85;
+}
+
+/* Sidebar badges */
+.sidebar-badge {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.badge-red {
+  background: #ef4444;
+  color: #fff;
+}
+
+.badge-orange {
+  background: #f59e0b;
+  color: #fff;
+}
+
+/* Collapsible folders header */
+.folders-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.folders-header span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.folders-chevron {
+  transition: transform 0.15s ease;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.folders-header.collapsed .folders-chevron {
+  transform: rotate(-90deg);
+}
+
+/* Sidebar divider */
+.sidebar-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 8px 16px;
+}
+
+/* Neglected item */
+.neglected-item {
+  opacity: 0.7;
+}
+
+.neglected-item:hover {
+  opacity: 1;
+}
+
+/* Review screen */
+.review-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 48px);
+  padding: 48px 24px;
+}
+
+.review-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 520px;
+  width: 100%;
+  text-align: left;
+}
+
+.review-card-date {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.review-card-text {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.review-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  max-width: 520px;
+  width: 100%;
+}
+
+.review-btn {
+  flex: 1;
+  padding: 10px 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.review-btn:active {
+  transform: scale(0.97);
+}
+
+.review-btn.neglect {
+  background: none;
+  color: var(--text-muted);
+}
+
+.review-btn.neglect:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.review-btn.confirm {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+
+.review-btn.confirm:hover {
+  opacity: 0.85;
+}
+
+/* Folder picker (shown after confirming in review) */
+.folder-picker {
+  margin-top: 16px;
+  max-width: 520px;
+  width: 100%;
+}
+
+.folder-picker-title {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.folder-picker-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.folder-picker-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.folder-picker-btn:hover {
+  background: var(--hover);
+  border-color: var(--accent);
+}
+
+/* Review empty state */
+.review-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 80px 0;
+  color: var(--text-muted);
+}
+
+.review-empty svg {
+  color: #22c55e;
+}
+
+.review-empty p {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Clear all bar for neglected view */
+.clear-all-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 16px;
+}
+
+.clear-all-bar span {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.clear-all-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  background: none;
+  color: var(--danger);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.clear-all-btn:hover {
+  background: rgba(231, 76, 60, 0.1);
 }

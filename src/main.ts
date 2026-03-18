@@ -20,6 +20,7 @@ interface Idea {
   folder_color?: string;
   folder_name?: string;
   created_at: string;
+  review_status: string | null;
 }
 
 const INBOX_ID = 1;
@@ -48,20 +49,122 @@ const deleteFolderName = document.getElementById("delete-folder-name")!;
 const deleteFolderConfirm = document.getElementById("delete-folder-confirm")!;
 const deleteFolderCancel = document.getElementById("delete-folder-cancel")!;
 const allCount = document.getElementById("all-count")!;
-const inboxCount = document.getElementById("inbox-count")!;
+const inboxBadge = document.getElementById("inbox-badge")!;
+const reviewBtn = document.getElementById("review-btn")!;
+const reviewBadge = document.getElementById("review-badge")!;
+const neglectedCountEl = document.getElementById("neglected-count")!;
+const foldersHeader = document.getElementById("folders-header")!;
+const headerEl = document.querySelector(".container > header") as HTMLElement;
+const fabAdd = document.getElementById("fab-add")!;
+const clearNeglectedDialog = document.getElementById("clear-neglected-dialog")!;
+const clearNeglectedConfirm = document.getElementById("clear-neglected-confirm")!;
+const clearNeglectedCancel = document.getElementById("clear-neglected-cancel")!;
 
 let activeFolderId: number | "all" = "all";
+let activeView: "folder" | "review" | "neglected" = "folder";
 let folders: Folder[] = [];
 let selectedColor = FOLDER_COLORS[0];
 let contextMenuIdeaId: number | null = null;
 let deletingFolderId: number | null = null;
+let foldersCollapsed = false;
+
+// Review state
+let reviewQueue: Idea[] = [];
+let reviewIndex = 0;
+let confirmingIdea: Idea | null = null;
+
+// --- View switching ---
+
+function switchView(view: "folder" | "review" | "neglected") {
+  activeView = view;
+  confirmingIdea = null;
+
+  // Update sidebar active states
+  document.querySelectorAll(".sidebar-item").forEach((el) => {
+    el.classList.remove("active");
+  });
+
+  if (view === "review") {
+    reviewBtn.classList.add("active");
+    headerEl.hidden = true;
+    fabAdd.hidden = true;
+    emptyState.hidden = true;
+    loadReviewQueue();
+  } else if (view === "neglected") {
+    document.querySelector('.sidebar-item[data-view="neglected"]')!.classList.add("active");
+    headerEl.hidden = false;
+    fabAdd.hidden = true;
+    loadNeglectedIdeas();
+  } else {
+    headerEl.hidden = false;
+    fabAdd.hidden = false;
+    const selector =
+      activeFolderId === "all"
+        ? '.sidebar-item[data-folder="all"]'
+        : `.sidebar-item[data-folder="${activeFolderId}"]`;
+    document.querySelector(selector)?.classList.add("active");
+    loadIdeas(searchInput.value.trim() || undefined);
+  }
+}
+
+// --- Collapsible folders ---
+
+foldersHeader.addEventListener("click", () => {
+  foldersCollapsed = !foldersCollapsed;
+  foldersHeader.classList.toggle("collapsed", foldersCollapsed);
+  folderListEl.hidden = foldersCollapsed;
+  newFolderBtn.hidden = foldersCollapsed;
+  if (foldersCollapsed) newFolderForm.hidden = true;
+});
+
+// --- Sidebar click handlers for system items ---
+
+reviewBtn.addEventListener("click", () => {
+  switchView("review");
+});
+
+document.querySelector('.sidebar-item[data-view="neglected"]')!.addEventListener("click", () => {
+  switchView("neglected");
+});
+
+// --- Badge counts ---
+
+async function updateBadgeCounts() {
+  const allResult: { cnt: number }[] = await db.select(
+    "SELECT COUNT(*) as cnt FROM ideas WHERE review_status IS NULL OR review_status = 'confirmed'",
+  );
+  allCount.textContent = String(allResult[0].cnt || "");
+
+  const inboxResult: { cnt: number }[] = await db.select(
+    "SELECT COUNT(*) as cnt FROM ideas WHERE folder_id = 1 AND (review_status IS NULL OR review_status = 'confirmed')",
+  );
+  const inboxCnt = inboxResult[0].cnt;
+  inboxBadge.textContent = String(inboxCnt);
+  inboxBadge.hidden = inboxCnt === 0;
+
+  const reviewResult: { cnt: number }[] = await db.select(
+    `SELECT COUNT(*) as cnt FROM ideas
+     WHERE folder_id = 1
+       AND review_status IS NULL
+       AND created_at <= datetime('now', '-48 hours')`,
+  );
+  const reviewCnt = reviewResult[0].cnt;
+  reviewBadge.textContent = String(reviewCnt);
+  reviewBadge.hidden = reviewCnt === 0;
+
+  const neglectedResult: { cnt: number }[] = await db.select(
+    "SELECT COUNT(*) as cnt FROM ideas WHERE review_status = 'neglected'",
+  );
+  const neglectedCnt = neglectedResult[0].cnt;
+  neglectedCountEl.textContent = String(neglectedCnt || "");
+}
 
 // --- Folder CRUD ---
 
 async function loadFolders() {
   folders = await db.select<Folder[]>(
     `SELECT f.id, f.name, f.color, f.created_at,
-            COUNT(i.id) as idea_count
+            COUNT(CASE WHEN i.review_status IS NULL OR i.review_status = 'confirmed' THEN 1 END) as idea_count
      FROM folders f
      LEFT JOIN ideas i ON i.folder_id = f.id
      GROUP BY f.id
@@ -69,19 +172,7 @@ async function loadFolders() {
               COALESCE(MAX(i.created_at), f.created_at) DESC`,
   );
 
-  const totalCount: { cnt: number }[] = await db.select("SELECT COUNT(*) as cnt FROM ideas");
-  allCount.textContent = String(totalCount[0].cnt || "");
-
-  const inbox = folders.find((f) => f.id === INBOX_ID);
-  inboxCount.textContent = String(inbox?.idea_count || "");
-
-  // Update inbox dot color
-  const inboxItem = document.querySelector('.sidebar-item[data-folder="1"]');
-  if (inboxItem) {
-    const dot = inboxItem.querySelector(".folder-dot") as HTMLElement;
-    if (dot && inbox) dot.style.background = inbox.color;
-  }
-
+  await updateBadgeCounts();
   renderSidebar();
 }
 
@@ -90,7 +181,7 @@ function renderSidebar() {
   folderListEl.innerHTML = userFolders
     .map(
       (f) => `
-    <div class="sidebar-item${activeFolderId === f.id ? " active" : ""}" data-folder="${f.id}">
+    <div class="sidebar-item${activeFolderId === f.id && activeView === "folder" ? " active" : ""}" data-folder="${f.id}">
       <span class="folder-dot" style="background:${escapeHtml(f.color)}"></span>
       <span>${escapeHtml(f.name)}</span>
       <span class="folder-count">${f.idea_count || ""}</span>
@@ -103,20 +194,20 @@ function renderSidebar() {
     )
     .join("");
 
-  // Update active state on static items
+  // Update active state on static items (All Ideas, Inbox)
   document.querySelectorAll(".sidebar-item[data-folder]").forEach((el) => {
     const folderId = el.getAttribute("data-folder");
-    el.classList.toggle("active", folderId === String(activeFolderId));
+    el.classList.toggle("active", activeView === "folder" && folderId === String(activeFolderId));
   });
 
-  // Attach click handlers on all sidebar items
+  // Attach click handlers on all folder sidebar items
   document.querySelectorAll(".sidebar-item[data-folder]").forEach((el) => {
     el.addEventListener("click", (e) => {
       if ((e.target as HTMLElement).closest(".delete-folder-btn")) return;
       const val = el.getAttribute("data-folder")!;
       activeFolderId = val === "all" ? "all" : Number(val);
+      switchView("folder");
       loadFolders();
-      loadIdeas(searchInput.value.trim() || undefined);
     });
 
     // Drop target for drag-and-drop
@@ -171,7 +262,9 @@ async function deleteFolder(id: number, moveToInbox: boolean) {
 async function moveIdeaToFolder(ideaId: number, folderId: number) {
   await db.execute("UPDATE ideas SET folder_id = $1 WHERE id = $2", [folderId, ideaId]);
   await loadFolders();
-  await loadIdeas(searchInput.value.trim() || undefined);
+  if (activeView === "folder") {
+    await loadIdeas(searchInput.value.trim() || undefined);
+  }
 }
 
 // --- Ideas ---
@@ -182,6 +275,9 @@ async function loadIdeas(query?: string) {
   let sql =
     "SELECT i.*, f.color as folder_color, f.name as folder_name FROM ideas i LEFT JOIN folders f ON i.folder_id = f.id";
   const conditions: string[] = [];
+
+  // Always exclude neglected from normal views
+  conditions.push("(i.review_status IS NULL OR i.review_status = 'confirmed')");
 
   if (activeFolderId !== "all") {
     params.push(activeFolderId);
@@ -214,9 +310,21 @@ function renderIdeas(ideas: Idea[], isSearch: boolean) {
   ideasList.innerHTML = ideas
     .map(
       (idea) => `
-    <div class="idea-row" data-id="${idea.id}" data-folder-id="${idea.folder_id}" draggable="true">
+    <div class="idea-row" data-id="${idea.id}" data-folder-id="${idea.folder_id}">
+      <span class="drag-handle" draggable="true" title="Drag to move">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="9" cy="5" r="2"/><circle cx="15" cy="5" r="2"/>
+          <circle cx="9" cy="12" r="2"/><circle cx="15" cy="12" r="2"/>
+          <circle cx="9" cy="19" r="2"/><circle cx="15" cy="19" r="2"/>
+        </svg>
+      </span>
       ${showFolderDot ? `<span class="idea-folder-dot" style="background:${escapeHtml(idea.folder_color || "#6b7280")}" title="${escapeHtml(idea.folder_name || "Inbox")}"></span>` : ""}
       <span class="idea-text">${escapeHtml(idea.text)}</span>
+      <span class="expand-btn" title="Expand">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </span>
       <span class="idea-time">${relativeTime(idea.created_at)}</span>
       <button class="delete-btn" title="Delete idea">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -229,9 +337,212 @@ function renderIdeas(ideas: Idea[], isSearch: boolean) {
     .join("");
 }
 
+// --- Review screen ---
+
+async function loadReviewQueue() {
+  reviewQueue = await db.select<Idea[]>(
+    `SELECT i.*, f.color as folder_color, f.name as folder_name
+     FROM ideas i
+     LEFT JOIN folders f ON i.folder_id = f.id
+     WHERE i.folder_id = 1
+       AND i.review_status IS NULL
+       AND i.created_at <= datetime('now', '-48 hours')
+     ORDER BY i.created_at ASC`,
+  );
+  reviewIndex = 0;
+  confirmingIdea = null;
+  renderReviewScreen();
+}
+
+function renderReviewScreen() {
+  emptyState.hidden = true;
+
+  if (reviewQueue.length === 0 || reviewIndex >= reviewQueue.length) {
+    ideasList.innerHTML = `
+      <div class="review-empty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <p>All caught up!</p>
+      </div>`;
+    return;
+  }
+
+  const idea = reviewQueue[reviewIndex];
+  const dateStr = new Date(idea.created_at + "Z").toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  const userFolders = folders.filter((f) => f.id !== INBOX_ID);
+
+  let html = `
+    <div class="review-screen">
+      <div class="review-card">
+        <div class="review-card-date">${escapeHtml(dateStr)}</div>
+        <div class="review-card-text">${escapeHtml(idea.text)}</div>
+      </div>
+      <div class="review-actions">
+        <button class="review-btn neglect" id="review-neglect">Neglect</button>
+        <button class="review-btn confirm" id="review-confirm">Confirm</button>
+      </div>`;
+
+  if (confirmingIdea && confirmingIdea.id === idea.id) {
+    html += `
+      <div class="folder-picker">
+        <div class="folder-picker-title">Move to folder:</div>
+        <div class="folder-picker-list">
+          ${userFolders
+            .map(
+              (f) => `
+            <button class="folder-picker-btn" data-folder-id="${f.id}">
+              <span class="folder-dot" style="background:${escapeHtml(f.color)}"></span>
+              ${escapeHtml(f.name)}
+            </button>`,
+            )
+            .join("")}
+        </div>
+      </div>`;
+  }
+
+  html += `</div>`;
+  ideasList.innerHTML = html;
+
+  // Attach event handlers
+  document.getElementById("review-neglect")!.addEventListener("click", neglectCurrentIdea);
+  document.getElementById("review-confirm")!.addEventListener("click", confirmCurrentIdea);
+
+  // Folder picker handlers
+  if (confirmingIdea) {
+    document.querySelectorAll(".folder-picker-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const folderId = Number((btn as HTMLElement).dataset.folderId);
+        await finalizeConfirm(confirmingIdea!.id, folderId);
+      });
+    });
+  }
+}
+
+async function neglectCurrentIdea() {
+  const idea = reviewQueue[reviewIndex];
+  await db.execute("UPDATE ideas SET review_status = 'neglected' WHERE id = $1", [idea.id]);
+  reviewIndex++;
+  confirmingIdea = null;
+  await loadFolders();
+  renderReviewScreen();
+}
+
+function confirmCurrentIdea() {
+  confirmingIdea = reviewQueue[reviewIndex];
+  renderReviewScreen();
+}
+
+async function finalizeConfirm(ideaId: number, folderId: number) {
+  await db.execute("UPDATE ideas SET review_status = 'confirmed', folder_id = $1 WHERE id = $2", [
+    folderId,
+    ideaId,
+  ]);
+  reviewIndex++;
+  confirmingIdea = null;
+  await loadFolders();
+  renderReviewScreen();
+}
+
+// Keyboard shortcuts for review
+document.addEventListener("keydown", (e) => {
+  if (activeView !== "review") return;
+  if (reviewIndex >= reviewQueue.length) return;
+  // Don't intercept when typing in inputs
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+  if (!confirmingIdea) {
+    if (e.key === "ArrowLeft" || e.key === "n") {
+      e.preventDefault();
+      neglectCurrentIdea();
+    }
+    if (e.key === "ArrowRight" || e.key === "c") {
+      e.preventDefault();
+      confirmCurrentIdea();
+    }
+  } else {
+    const num = parseInt(e.key);
+    const userFolders = folders.filter((f) => f.id !== INBOX_ID);
+    if (num >= 1 && num <= userFolders.length) {
+      e.preventDefault();
+      finalizeConfirm(confirmingIdea.id, userFolders[num - 1].id);
+    }
+    if (e.key === "Escape") {
+      confirmingIdea = null;
+      renderReviewScreen();
+    }
+  }
+});
+
+// --- Neglected view ---
+
+async function loadNeglectedIdeas() {
+  const ideas = await db.select<Idea[]>(
+    `SELECT i.*, f.color as folder_color, f.name as folder_name
+     FROM ideas i
+     LEFT JOIN folders f ON i.folder_id = f.id
+     WHERE i.review_status = 'neglected'
+     ORDER BY i.created_at DESC`,
+  );
+
+  if (ideas.length === 0) {
+    ideasList.innerHTML = "";
+    emptyState.hidden = false;
+    emptyMessage.textContent = "No neglected ideas.";
+    return;
+  }
+
+  emptyState.hidden = true;
+
+  let html = `
+    <div class="clear-all-bar">
+      <span>${ideas.length} neglected idea${ideas.length === 1 ? "" : "s"}</span>
+      <button class="clear-all-btn" id="clear-all-neglected">Clear All</button>
+    </div>`;
+
+  html += ideas
+    .map(
+      (idea) => `
+    <div class="idea-row" data-id="${idea.id}">
+      <span class="idea-text">${escapeHtml(idea.text)}</span>
+      <span class="idea-time">${relativeTime(idea.created_at)}</span>
+    </div>`,
+    )
+    .join("");
+
+  ideasList.innerHTML = html;
+
+  document.getElementById("clear-all-neglected")!.addEventListener("click", () => {
+    clearNeglectedDialog.hidden = false;
+  });
+}
+
+// Clear neglected dialog handlers
+clearNeglectedConfirm.addEventListener("click", async () => {
+  await db.execute("DELETE FROM ideas WHERE review_status = 'neglected'");
+  clearNeglectedDialog.hidden = true;
+  await loadFolders();
+  loadNeglectedIdeas();
+});
+
+clearNeglectedCancel.addEventListener("click", () => {
+  clearNeglectedDialog.hidden = true;
+});
+
+clearNeglectedDialog.addEventListener("click", (e) => {
+  if (e.target === clearNeglectedDialog) clearNeglectedDialog.hidden = true;
+});
+
 // --- New Idea FAB + Modal ---
 
-const fabAdd = document.getElementById("fab-add")!;
 const newIdeaDialog = document.getElementById("new-idea-dialog")!;
 const newIdeaText = document.getElementById("new-idea-text") as HTMLTextAreaElement;
 const newIdeaSave = document.getElementById("new-idea-save")!;
@@ -274,15 +585,40 @@ newIdeaDialog.addEventListener("click", (e) => {
   if (e.target === newIdeaDialog) closeNewIdeaModal();
 });
 
-// Delete via event delegation
+// Click delegation: delete + expand/collapse
 ideasList.addEventListener("click", async (e) => {
-  const btn = (e.target as HTMLElement).closest(".delete-btn");
+  const target = e.target as HTMLElement;
+
+  // Delete button — existing behavior
+  const btn = target.closest(".delete-btn");
   if (btn) {
     const row = btn.closest(".idea-row") as HTMLElement;
     const id = Number(row.dataset.id);
     await db.execute("DELETE FROM ideas WHERE id = $1", [id]);
     await loadFolders();
     await loadIdeas(searchInput.value.trim() || undefined);
+    return;
+  }
+
+  // Non-expanding elements — do nothing
+  if (target.closest(".idea-time") || target.closest(".idea-folder-dot") || target.closest(".drag-handle")) {
+    return;
+  }
+
+  // Don't toggle if user is selecting text
+  const selection = window.getSelection();
+  if (selection && selection.toString().length > 0) {
+    return;
+  }
+
+  // Toggle expand/collapse
+  const row = target.closest(".idea-row") as HTMLElement;
+  if (!row) return;
+  row.classList.toggle("expanded");
+  const expandBtn = row.querySelector(".expand-btn");
+  if (expandBtn) {
+    const isExpanded = row.classList.contains("expanded");
+    expandBtn.setAttribute("title", isExpanded ? "Collapse" : "Expand");
   }
 });
 
@@ -305,6 +641,7 @@ ideasList.addEventListener("dragend", (e) => {
 // --- Context menu ---
 
 ideasList.addEventListener("contextmenu", (e) => {
+  if (activeView !== "folder") return;
   const row = (e.target as HTMLElement).closest(".idea-row") as HTMLElement;
   if (!row) return;
   e.preventDefault();
@@ -383,7 +720,7 @@ function renderColorPalette() {
 
 function hideNewFolderForm() {
   newFolderForm.hidden = true;
-  newFolderBtn.hidden = false;
+  newFolderBtn.hidden = foldersCollapsed;
 }
 
 folderSaveBtn.addEventListener("click", async () => {
@@ -438,6 +775,7 @@ deleteFolderDialog.addEventListener("click", (e) => {
 
 let searchTimeout: number;
 searchInput.addEventListener("input", () => {
+  if (activeView !== "folder") return;
   clearTimeout(searchTimeout);
   searchTimeout = window.setTimeout(() => {
     loadIdeas(searchInput.value.trim() || undefined);
@@ -447,7 +785,13 @@ searchInput.addEventListener("input", () => {
 // Refresh when window gains focus
 getCurrentWindow().listen("tauri://focus", () => {
   loadFolders();
-  loadIdeas(searchInput.value.trim() || undefined);
+  if (activeView === "review") {
+    loadReviewQueue();
+  } else if (activeView === "neglected") {
+    loadNeglectedIdeas();
+  } else {
+    loadIdeas(searchInput.value.trim() || undefined);
+  }
 });
 
 // Enable autostart on first run
@@ -531,6 +875,7 @@ importBtn.addEventListener("click", async () => {
     const idea = item as Record<string, unknown>;
     if (typeof idea.text !== "string" || !idea.text.trim()) continue;
     const createdAt = typeof idea.created_at === "string" ? idea.created_at : new Date().toISOString();
+    const reviewStatus = typeof idea.review_status === "string" ? idea.review_status : null;
 
     // Resolve folder
     let folderId = INBOX_ID;
@@ -557,17 +902,18 @@ importBtn.addEventListener("click", async () => {
       [idea.text, createdAt],
     );
     if (existing.length === 0) {
-      await db.execute("INSERT INTO ideas (text, folder_id, created_at) VALUES ($1, $2, $3)", [
-        idea.text,
-        folderId,
-        createdAt,
-      ]);
+      await db.execute(
+        "INSERT INTO ideas (text, folder_id, created_at, review_status) VALUES ($1, $2, $3, $4)",
+        [idea.text, folderId, createdAt, reviewStatus],
+      );
       imported++;
     }
   }
 
   await loadFolders();
-  await loadIdeas(searchInput.value.trim() || undefined);
+  if (activeView === "folder") {
+    await loadIdeas(searchInput.value.trim() || undefined);
+  }
   await message(`Imported ${imported} idea${imported === 1 ? "" : "s"}.`, {
     title: "Import Complete",
     kind: "info",

@@ -27,5 +27,11 @@ pub fn get_migrations() -> Vec<Migration> {
             UPDATE ideas SET folder_id = 1 WHERE folder_id IS NULL;",
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "add_review_status",
+            sql: "ALTER TABLE ideas ADD COLUMN review_status TEXT DEFAULT NULL;",
+            kind: MigrationKind::Up,
+        },
     ]
 }

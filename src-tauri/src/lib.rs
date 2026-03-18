@@ -14,7 +14,7 @@ fn get_or_create_overlay(app: &tauri::AppHandle) -> tauri::Result<tauri::Webview
 
     WebviewWindowBuilder::new(app, "overlay", WebviewUrl::App("src/overlay.html".into()))
         .title("Quicknote Capture")
-        .inner_size(500.0, 180.0)
+        .inner_size(450.0, 450.0)
         .decorations(false)
         .always_on_top(true)
         .center()

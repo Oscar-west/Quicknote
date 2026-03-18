@@ -8,6 +8,19 @@ const currentWindow = getCurrentWindow();
 
 const db = await Database.load("sqlite:quicknote.db");
 
+const PASTEL_COLORS = [
+  "rgba(200, 191, 231, 0.85)", // lavender
+  "rgba(189, 236, 210, 0.85)", // mint
+  "rgba(255, 218, 185, 0.85)", // peach
+  "rgba(255, 255, 186, 0.85)", // soft yellow
+  "rgba(186, 225, 255, 0.85)", // baby blue
+];
+
+function applyRandomColor() {
+  const color = PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)];
+  document.body.style.setProperty("--note-bg", color);
+}
+
 let dismissing = false;
 
 function resetState() {
@@ -29,7 +42,7 @@ async function dismissWithFade() {
 }
 
 input.addEventListener("keydown", async (e) => {
-  if (e.key === "Enter" && e.ctrlKey) {
+  if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     const text = input.value.trim();
     if (!text) return;
@@ -60,5 +73,9 @@ currentWindow.onFocusChanged(({ payload: focused }) => {
 // Re-focus input when window becomes visible
 currentWindow.listen("tauri://focus", () => {
   resetState();
+  applyRandomColor();
   input.focus();
 });
+
+// Apply random color on initial load
+applyRandomColor();
