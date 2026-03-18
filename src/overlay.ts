@@ -9,11 +9,11 @@ const currentWindow = getCurrentWindow();
 const db = await Database.load("sqlite:quicknote.db");
 
 const PASTEL_COLORS = [
-  "rgba(200, 191, 231, 0.85)", // lavender
-  "rgba(189, 236, 210, 0.85)", // mint
-  "rgba(255, 218, 185, 0.85)", // peach
-  "rgba(255, 255, 186, 0.85)", // soft yellow
-  "rgba(186, 225, 255, 0.85)", // baby blue
+  "rgba(180, 160, 230, 0.85)", // lavender
+  "rgba(140, 230, 180, 0.85)", // mint
+  "rgba(255, 180, 140, 0.85)", // peach
+  "rgba(255, 245, 120, 0.85)", // soft yellow
+  "rgba(140, 200, 255, 0.85)", // baby blue
 ];
 
 function applyRandomColor() {
@@ -22,9 +22,11 @@ function applyRandomColor() {
 }
 
 let dismissing = false;
+let saving = false;
 
 function resetState() {
   dismissing = false;
+  saving = false;
   input.value = "";
   input.classList.remove("hidden");
   hint.classList.remove("hidden");
@@ -44,8 +46,10 @@ async function dismissWithFade() {
 input.addEventListener("keydown", async (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
+    if (saving) return;
     const text = input.value.trim();
     if (!text) return;
+    saving = true;
     await db.execute("INSERT INTO ideas (text, folder_id) VALUES ($1, 1)", [text]);
 
     // Show "Saved" confirmation with flash
@@ -58,20 +62,18 @@ input.addEventListener("keydown", async (e) => {
     await new Promise((r) => setTimeout(r, 500));
     await dismissWithFade();
   }
-  if (e.key === "Escape") {
+  if (e.key === "Escape" && !saving) {
     await dismissWithFade();
   }
 });
 
-// Dismiss on focus loss (click outside)
-currentWindow.onFocusChanged(({ payload: focused }) => {
-  if (!focused) {
-    dismissWithFade();
-  }
+// Re-focus input when clicking back on the post-it
+currentWindow.listen("tauri://focus", () => {
+  input.focus();
 });
 
-// Re-focus input when window becomes visible
-currentWindow.listen("tauri://focus", () => {
+// Reset state when summoned via hotkey
+currentWindow.listen("summon", () => {
   resetState();
   applyRandomColor();
   input.focus();

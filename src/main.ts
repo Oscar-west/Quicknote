@@ -67,6 +67,7 @@ let selectedColor = FOLDER_COLORS[0];
 let contextMenuIdeaId: number | null = null;
 let deletingFolderId: number | null = null;
 let foldersCollapsed = false;
+let savingIdea = false;
 
 // Review state
 let reviewQueue: Idea[] = [];
@@ -119,12 +120,38 @@ foldersHeader.addEventListener("click", () => {
 
 // --- Sidebar click handlers for system items ---
 
+document.querySelector('.sidebar-item[data-folder="all"]')!.addEventListener("click", () => {
+  activeFolderId = "all";
+  switchView("folder");
+});
+
+document.querySelector('.sidebar-item[data-folder="1"]')!.addEventListener("click", () => {
+  activeFolderId = 1;
+  switchView("folder");
+});
+
 reviewBtn.addEventListener("click", () => {
   switchView("review");
 });
 
 document.querySelector('.sidebar-item[data-view="neglected"]')!.addEventListener("click", () => {
   switchView("neglected");
+});
+
+// One-time drag/drop setup for Inbox (static droppable)
+const inboxItem = document.querySelector('.sidebar-item[data-folder="1"]')!;
+inboxItem.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  inboxItem.classList.add("drag-over");
+});
+inboxItem.addEventListener("dragleave", () => {
+  inboxItem.classList.remove("drag-over");
+});
+inboxItem.addEventListener("drop", async (e) => {
+  e.preventDefault();
+  inboxItem.classList.remove("drag-over");
+  const ideaId = Number((e as DragEvent).dataTransfer?.getData("text/plain"));
+  if (ideaId) await moveIdeaToFolder(ideaId, 1);
 });
 
 // --- Badge counts ---
@@ -200,23 +227,19 @@ function renderSidebar() {
     el.classList.toggle("active", activeView === "folder" && folderId === String(activeFolderId));
   });
 
-  // Attach click handlers on all folder sidebar items
-  document.querySelectorAll(".sidebar-item[data-folder]").forEach((el) => {
+  // Attach click + drag/drop handlers on dynamic user folder items only
+  folderListEl.querySelectorAll(".sidebar-item[data-folder]").forEach((el) => {
     el.addEventListener("click", (e) => {
       if ((e.target as HTMLElement).closest(".delete-folder-btn")) return;
       const val = el.getAttribute("data-folder")!;
-      activeFolderId = val === "all" ? "all" : Number(val);
+      activeFolderId = Number(val);
       switchView("folder");
-      loadFolders();
     });
 
     // Drop target for drag-and-drop
     el.addEventListener("dragover", (e) => {
       e.preventDefault();
-      const folderId = el.getAttribute("data-folder");
-      if (folderId && folderId !== "all") {
-        el.classList.add("drag-over");
-      }
+      el.classList.add("drag-over");
     });
     el.addEventListener("dragleave", () => {
       el.classList.remove("drag-over");
@@ -225,7 +248,7 @@ function renderSidebar() {
       e.preventDefault();
       el.classList.remove("drag-over");
       const folderId = el.getAttribute("data-folder");
-      if (!folderId || folderId === "all") return;
+      if (!folderId) return;
       const ideaId = Number((e as DragEvent).dataTransfer?.getData("text/plain"));
       if (ideaId) await moveIdeaToFolder(ideaId, Number(folderId));
     });
@@ -560,11 +583,14 @@ function closeNewIdeaModal() {
 }
 
 async function saveNewIdea() {
+  if (savingIdea) return;
   const text = newIdeaText.value.trim();
   if (!text) return;
+  savingIdea = true;
   const folderId = activeFolderId === "all" ? INBOX_ID : activeFolderId;
   await db.execute("INSERT INTO ideas (text, folder_id) VALUES ($1, $2)", [text, folderId]);
   closeNewIdeaModal();
+  savingIdea = false;
   await loadFolders();
   await loadIdeas(searchInput.value.trim() || undefined);
 }

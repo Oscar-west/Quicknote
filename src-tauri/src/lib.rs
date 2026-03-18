@@ -3,7 +3,7 @@ mod db;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
-    Manager, WebviewUrl, WebviewWindowBuilder,
+    Emitter, Manager, WebviewUrl, WebviewWindowBuilder,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
@@ -27,13 +27,10 @@ fn get_or_create_overlay(app: &tauri::AppHandle) -> tauri::Result<tauri::Webview
 fn toggle_overlay(app: &tauri::AppHandle) {
     match get_or_create_overlay(app) {
         Ok(window) => {
-            if window.is_visible().unwrap_or(false) {
-                let _ = window.hide();
-            } else {
-                let _ = window.center();
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            let _ = window.center();
+            let _ = window.show();
+            let _ = window.set_focus();
+            let _ = window.emit("summon", ());
         }
         Err(e) => eprintln!("Failed to toggle overlay: {e}"),
     }
